@@ -1,12 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
+import sqlite3
+from app.utils.utils import get_date_column, format_currency
 
 class FinanceiroView:
     def __init__(self, master, db, auth, usuario_atual):
         self.db = db
         self.usuario_atual = usuario_atual
         self.frame = ttk.Frame(master)
+        self.date_column = get_date_column(db.cursor, 'vendas')
         
         self.criar_widgets()
         self.carregar_dados()
@@ -60,9 +63,6 @@ class FinanceiroView:
             self.metricas_labels[key] = ttk.Label(resumo_frame, text="", font=('Arial', 10))
             self.metricas_labels[key].grid(row=i, column=1, sticky='w', padx=5, pady=2)
         
-        # Gráfico (simulado)
-        ttk.Label(resumo_frame, text="Evolução das Vendas:").grid(row=0, column=2, rowspan=4, padx=10)
-        
         # Detalhes das vendas
         vendas_frame = ttk.LabelFrame(self.frame, text="Detalhes das Vendas", padding=10)
         vendas_frame.pack(fill='both', expand=True, padx=10, pady=5)
@@ -99,82 +99,84 @@ class FinanceiroView:
     def carregar_dados(self):
         periodo = self.periodo_var.get()
         
-        if periodo == "custom":
-            data_inicio = self.data_inicio.get()
-            data_fim = self.data_fim.get()
-            
-            try:
+        try:
+            if periodo == "custom":
+                data_inicio = self.data_inicio.get()
+                data_fim = self.data_fim.get()
+                
                 datetime.strptime(data_inicio, '%Y-%m-%d')
                 datetime.strptime(data_fim, '%Y-%m-%d')
-            except ValueError:
-                messagebox.showwarning("Aviso", "Formato de data inválido! Use YYYY-MM-DD")
-                return
+                
+                where_clause = f"WHERE date(v.{self.date_column}) BETWEEN '{data_inicio}' AND '{data_fim}'"
+            else:
+                dias = int(periodo)
+                where_clause = f"WHERE date(v.{self.date_column}) >= date('now', '-{dias} days')"
             
-            where_clause = f"WHERE date(v.data) BETWEEN '{data_inicio}' AND '{data_fim}'"
-        else:
-            dias = int(periodo)
-            where_clause = f"WHERE date(v.data) >= date('now', '-{dias} days')"
-        
-        # Carrega vendas
-        for item in self.vendas_tree.get_children():
-            self.vendas_tree.delete(item)
-        
-        query = f"""
-            SELECT v.id, v.data, c.nome, v.total 
-            FROM vendas v
-            JOIN clientes c ON v.cliente_id = c.id
-            {where_clause}
-            ORDER BY v.data DESC
-        """
-        
-        self.db.cursor.execute(query)
-        total_vendas = 0
-        for venda in self.db.cursor.fetchall():
-            self.vendas_tree.insert('', 'end', values=(
-                venda[0],
-                venda[1],
-                venda[2],
-                f"R$ {venda[3]:.2f}".replace(".", ",")
-            ))
-            total_vendas += venda[3]
-        
-        # Atualiza métricas
-        self.metricas_labels['total_vendas'].config(text=f"R$ {total_vendas:.2f}".replace(".", ","))
-        
-        if periodo != "custom":
-            dias = int(periodo)
-            media = total_vendas / dias if dias > 0 else 0
-            self.metricas_labels['media_diaria'].config(text=f"R$ {media:.2f}".replace(".", ","))
-        
-        # Produto mais vendido
-        query = f"""
-            SELECT p.nome, SUM(iv.quantidade) as total
-            FROM itens_venda iv
-            JOIN produtos p ON iv.produto_id = p.id
-            JOIN vendas v ON iv.venda_id = v.id
-            {where_clause}
-            GROUP BY p.nome
-            ORDER BY total DESC
-            LIMIT 1
-        """
-        
-        self.db.cursor.execute(query)
-        result = self.db.cursor.fetchone()
-        produto = result[0] + f" ({result[1]} un)" if result else "N/A"
-        self.metricas_labels['produto_mais_vendido'].config(text=produto)
-        
-        # Cliente mais frequente
-        query = f"""
-            SELECT c.nome, COUNT(*) as total
-            FROM vendas v
-            JOIN clientes c ON v.cliente_id = c.id
-            {where_clause}
-            GROUP BY c.nome
-            ORDER BY total DESC
-            LIMIT 1
-        """
-        
-        self.db.cursor.execute(query)
-        result = self.db.cursor.fetchone()
-        cliente = f"{result[0]} ({result[1]} compras)" if result else "N/A"
-        self.metricas_labels['cliente_mais_frequente'].config(text=cliente)
+            # Carrega vendas
+            for item in self.vendas_tree.get_children():
+                self.vendas_tree.delete(item)
+            
+            query = f"""
+                SELECT v.id, v.{self.date_column}, c.nome, v.total 
+                FROM vendas v
+                JOIN clientes c ON v.cliente_id = c.id
+                {where_clause}
+                ORDER BY v.{self.date_column} DESC
+            """
+            
+            self.db.cursor.execute(query)
+            total_vendas = 0
+            for venda in self.db.cursor.fetchall():
+                self.vendas_tree.insert('', 'end', values=(
+                    venda[0],
+                    venda[1],
+                    venda[2],
+                    format_currency(venda[3])
+                ))
+                total_vendas += venda[3]
+            
+            # Atualiza métricas
+            self.metricas_labels['total_vendas'].config(text=format_currency(total_vendas))
+            
+            if periodo != "custom":
+                dias = int(periodo)
+                media = total_vendas / dias if dias > 0 else 0
+                self.metricas_labels['media_diaria'].config(text=format_currency(media))
+            
+            # Produto mais vendido
+            query = f"""
+                SELECT p.nome, SUM(iv.quantidade) as total
+                FROM itens_venda iv
+                JOIN produtos p ON iv.produto_id = p.id
+                JOIN vendas v ON iv.venda_id = v.id
+                {where_clause}
+                GROUP BY p.nome
+                ORDER BY total DESC
+                LIMIT 1
+            """
+            
+            self.db.cursor.execute(query)
+            result = self.db.cursor.fetchone()
+            produto = result[0] + f" ({result[1]} un)" if result else "N/A"
+            self.metricas_labels['produto_mais_vendido'].config(text=produto)
+            
+            # Cliente mais frequente
+            query = f"""
+                SELECT c.nome, COUNT(*) as total
+                FROM vendas v
+                JOIN clientes c ON v.cliente_id = c.id
+                {where_clause}
+                GROUP BY c.nome
+                ORDER BY total DESC
+                LIMIT 1
+            """
+            
+            self.db.cursor.execute(query)
+            result = self.db.cursor.fetchone()
+            cliente = f"{result[0]} ({result[1]} compras)" if result else "N/A"
+            self.metricas_labels['cliente_mais_frequente'].config(text=cliente)
+            
+        except ValueError as e:
+            messagebox.showwarning("Aviso", f"Data inválida: {str(e)}")
+        except sqlite3.Error as e:
+            messagebox.showerror("Erro", f"Falha ao carregar dados: {str(e)}")

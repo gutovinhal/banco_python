@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from app.utils.utils import get_date_column, format_currency
 
 class ProdutosView:
     def __init__(self, master, db, auth, usuario_atual):

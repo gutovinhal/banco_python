@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from app.models.database import Database
 from app.models.seguranca import Autenticacao
 from app.views.login_view import LoginView
+from app.views.contas_view import ContasView  # Nova importação
 
 class SistemaGestao:
     def __init__(self, root):
@@ -42,15 +43,23 @@ class SistemaGestao:
         from app.views.vendas_view import VendasView
         from app.views.financeiro_view import FinanceiroView
         
+        # Criar as views existentes
         self.produtos_view = ProdutosView(self.notebook, self.db, self.auth, self.usuario_atual)
         self.clientes_view = ClientesView(self.notebook, self.db, self.auth, self.usuario_atual)
         self.vendas_view = VendasView(self.notebook, self.db, self.auth, self.usuario_atual)
         self.financeiro_view = FinanceiroView(self.notebook, self.db, self.auth, self.usuario_atual)
         
+        # Criar as novas views de contas
+        self.contas_receber_view = ContasView(self.notebook, self.db, self.auth, self.usuario_atual, 'receber')
+        self.contas_pagar_view = ContasView(self.notebook, self.db, self.auth, self.usuario_atual, 'pagar')
+        
+        # Adicionar todas as abas
         self.notebook.add(self.produtos_view.frame, text="Produtos")
         self.notebook.add(self.clientes_view.frame, text="Clientes")
         self.notebook.add(self.vendas_view.frame, text="Vendas")
         self.notebook.add(self.financeiro_view.frame, text="Financeiro")
+        self.notebook.add(self.contas_receber_view.frame, text="Contas a Receber")
+        self.notebook.add(self.contas_pagar_view.frame, text="Contas a Pagar")
         
         self.notebook.pack(expand=True, fill='both')
         self.setup_menu()
@@ -69,6 +78,8 @@ class SistemaGestao:
         report_menu = tk.Menu(menubar, tearoff=0)
         report_menu.add_command(label="Clientes", command=self.gerar_relatorio_clientes)
         report_menu.add_command(label="Vendas", command=self.gerar_relatorio_vendas)
+        report_menu.add_command(label="Contas a Receber", command=lambda: self.gerar_relatorio_contas('receber'))
+        report_menu.add_command(label="Contas a Pagar", command=lambda: self.gerar_relatorio_contas('pagar'))
         menubar.add_cascade(label="Relatórios", menu=report_menu)
         
         self.root.config(menu=menubar)
@@ -87,3 +98,9 @@ class SistemaGestao:
         from app.utils.relatorios import gerar_relatorio_vendas
         path = gerar_relatorio_vendas(self.db)
         messagebox.showinfo("Relatório", f"Relatório gerado em: {path}")
+
+    def gerar_relatorio_contas(self, tipo_conta):
+        """Nova função para gerar relatório de contas"""
+        from app.utils.relatorios import gerar_relatorio_contas
+        path = gerar_relatorio_contas(self.db, tipo_conta)
+        messagebox.showinfo("Relatório", f"Relatório de Contas a {tipo_conta.title()} gerado em: {path}")

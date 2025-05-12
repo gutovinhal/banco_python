@@ -2,6 +2,7 @@ import shutil
 from datetime import datetime
 import os
 
+
 def realizar_backup(origem):
     try:
         data_atual = datetime.now().strftime("%Y%m%d_%H%M%S")
