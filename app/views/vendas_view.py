@@ -7,11 +7,12 @@ class VendasView:
         self.db = db
         self.usuario_atual = usuario_atual
         self.frame = ttk.Frame(master)
+        self.itens_venda = []
         
         self.criar_widgets()
-        self.carregar_vendas()
         self.carregar_clientes()
         self.carregar_produtos()
+        self.carregar_vendas()
     
     def criar_widgets(self):
         # Frame superior
@@ -33,9 +34,10 @@ class VendasView:
         self.produto_combobox.grid(row=1, column=1, padx=5, pady=2, sticky='ew')
         
         # Quantidade
-        ttk.Label(form_form, text="Quantidade:").grid(row=2, column=0, sticky='e', padx=5, pady=2)
+        ttk.Label(form_frame, text="Quantidade:").grid(row=2, column=0, sticky='e', padx=5, pady=2)
         self.quantidade_spin = ttk.Spinbox(form_frame, from_=1, to=100, width=5)
         self.quantidade_spin.grid(row=2, column=1, padx=5, pady=2, sticky='w')
+        self.quantidade_spin.set(1)
         
         # Botão Adicionar Item
         ttk.Button(form_frame, text="Adicionar Item", command=self.adicionar_item).grid(row=3, column=0, columnspan=2, pady=5)
@@ -102,9 +104,6 @@ class VendasView:
         
         self.vendas_tree.pack(side='left', fill='both', expand=True)
         scrollbar.pack(side='right', fill='y')
-        
-        # Inicializar variáveis
-        self.itens_venda = []
     
     def carregar_clientes(self):
         self.db.cursor.execute("SELECT id, nome FROM clientes ORDER BY nome")
@@ -239,3 +238,4 @@ class VendasView:
         self.produto_combobox.set('')
         self.quantidade_spin.delete(0, 'end')
         self.quantidade_spin.insert(0, '1')
+        
