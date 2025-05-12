@@ -1,2 +1,5 @@
 tk>=8.6
 sqlite3>=3.35
+reportlab==3.6.12
+matplotlib==3.7.1
+pandas==2.0.3
